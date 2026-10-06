@@ -2,7 +2,7 @@
 
 public class ActivityLog
 {
-    public int LogId { get; set; }
+    public int ActivityLogId { get; set; }
     public int ProjectId { get; set; }
     public Project? Project { get; set; }
     public string EventType { get; set; } = string.Empty; // stage_change, payment_received, document_uploaded, note
