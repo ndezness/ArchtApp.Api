@@ -30,6 +30,8 @@ public class ClientsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Client>> Create(Client client)
     {
+        if (string.IsNullOrWhiteSpace(client.Name) || string.IsNullOrWhiteSpace(client.PropertyAddress))
+            return BadRequest("Name and property address are required.");
         _db.Clients.Add(client);
         await _db.SaveChangesAsync();
         return CreatedAtAction(nameof(Get), new { id = client.ClientId }, client);
@@ -47,6 +49,8 @@ public class ClientsController : ControllerBase
         }
         catch (DbUpdateConcurrencyException)
         {
+            if (string.IsNullOrWhiteSpace(client.Name) || string.IsNullOrWhiteSpace(client.PropertyAddress))
+                return BadRequest("Name and property address are required.");
             if (!await _db.Clients.AnyAsync(c => c.ClientId == id)) return NotFound();
             throw;
         }
