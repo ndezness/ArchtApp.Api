@@ -273,6 +273,45 @@ namespace ArchtApp.Api.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("ArchtApp.Api.Models.WorkItem", b =>
+                {
+                    b.Property<int>("WorkItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDone")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("WorkItemId");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("WorkItems");
+                });
+
             modelBuilder.Entity("ArchtApp.Api.Models.ActivityLog", b =>
                 {
                     b.HasOne("ArchtApp.Api.Models.Project", "Project")
@@ -332,6 +371,17 @@ namespace ArchtApp.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("CurrentStage");
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("ArchtApp.Api.Models.WorkItem", b =>
+                {
+                    b.HasOne("ArchtApp.Api.Models.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Project");
                 });

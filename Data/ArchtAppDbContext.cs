@@ -17,6 +17,7 @@ public class ArchtAppDbContext : DbContext
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
