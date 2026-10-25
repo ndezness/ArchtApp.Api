@@ -15,6 +15,30 @@ public class ActivityLogsController : ControllerBase
 
     public ActivityLogsController(ArchtAppDbContext db) => _db = db;
 
+    // GET api/activitylogs/feed?limit=200 -> newest first, across all projects
+    [HttpGet("feed")]
+    public async Task<IActionResult> Feed([FromQuery] int limit = 200)
+    {
+        limit = Math.Clamp(limit, 1, 500);
+
+        var items = await _db.ActivityLogs.AsNoTracking()
+            .OrderByDescending(l => l.CreatedAt)
+            .Take(limit)
+            .Select(l => new
+            {
+                l.ActivityLogId,
+                l.ProjectId,
+                projectName = l.Project!.ProjectName,
+                clientName = l.Project.Client!.Name,
+                l.EventType,
+                l.Description,
+                l.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(items);
+    }
+
     // GET api/activitylogs?projectId=1 -> newest first
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ActivityLog>>> GetAll([FromQuery] int? projectId)
