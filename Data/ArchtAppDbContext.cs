@@ -1,6 +1,5 @@
 ﻿using ArchtApp.Api.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection.Emit;
 
 namespace ArchtApp.Api.Data;
 
@@ -29,5 +28,6 @@ public class ArchtAppDbContext : DbContext
             new Stage { StageId = 4, Name = "Permitting", SortOrder = 4 },
             new Stage { StageId = 5, Name = "Construction", SortOrder = 5 }
         );
+        modelBuilder.Entity<User>().HasIndex(u => u.Username).IsUnique();
     }
 }

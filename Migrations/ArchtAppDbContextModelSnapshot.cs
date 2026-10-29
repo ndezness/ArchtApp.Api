@@ -270,6 +270,9 @@ namespace ArchtApp.Api.Migrations
 
                     b.HasKey("UserId");
 
+                    b.HasIndex("Username")
+                        .IsUnique();
+
                     b.ToTable("Users");
                 });
 
