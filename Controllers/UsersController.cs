@@ -27,7 +27,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetAll() =>
         Ok(await _db.Users.AsNoTracking()
             .OrderBy(u => u.Username)
-            .Select(u => new { u.UserId, u.Username, u.Role })
+            .Select(u => new { u.UserId, u.Username, u.Role, resetRequested = u.ResetRequestedAt != null })
             .ToListAsync());
 
     [HttpPost]
@@ -67,6 +67,7 @@ public class UsersController : ControllerBase
         if (user is null) return NotFound();
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword);
+        user.ResetRequestedAt = null;
         await _db.SaveChangesAsync();
         return NoContent();
     }

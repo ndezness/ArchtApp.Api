@@ -9,6 +9,7 @@ namespace ArchtApp.Api.Controllers;
 
 public record SetupRequest(string Username, string Password);
 public record LoginRequest(string Username, string Password);
+public record ForgotPasswordRequest(string Username);
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
 [ApiController]
@@ -33,23 +34,25 @@ public class AuthController : ControllerBase
         return new { token, expiresAt, username = user.Username, role = user.Role };
     }
 
-    // Lets the login page know whether to show "create the admin account" instead
+    // Setup is needed whenever there is no admin (first run, or recovery)
     [AllowAnonymous]
     [HttpGet("status")]
     public async Task<IActionResult> Status() =>
-        Ok(new { needsSetup = !await _db.Users.AnyAsync() });
+        Ok(new { needsSetup = !await _db.Users.AnyAsync(u => u.Role == "admin") });
 
-    // Works exactly once: only while the Users table is empty
     [AllowAnonymous]
     [HttpPost("setup")]
     public async Task<IActionResult> Setup(SetupRequest req)
     {
-        if (await _db.Users.AnyAsync())
+        if (await _db.Users.AnyAsync(u => u.Role == "admin"))
             return Conflict("Setup has already been completed.");
 
         var username = UserRules.Normalize(req.Username);
         var error = UserRules.ValidateUsername(username) ?? UserRules.ValidatePassword(req.Password);
         if (error is not null) return BadRequest(error);
+
+        if (await _db.Users.AnyAsync(u => u.Username == username))
+            return Conflict($"The username '{username}' is already taken.");
 
         var user = new User
         {
@@ -70,12 +73,36 @@ public class AuthController : ControllerBase
         var username = UserRules.Normalize(req.Username);
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
 
-        // Same message for "no such user" and "wrong password"
         if (user is null || string.IsNullOrEmpty(req.Password) ||
             !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
             return Unauthorized("Invalid username or password.");
 
+        // They remembered it after all, so clear any pending reset request
+        if (user.ResetRequestedAt is not null)
+        {
+            user.ResetRequestedAt = null;
+            await _db.SaveChangesAsync();
+        }
+
         return Ok(SignedIn(user));
+    }
+
+    // Flags the account for the admin. The reply is identical whether or not the
+    // username exists, so this can't be used to discover who has an account.
+    [AllowAnonymous]
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req)
+    {
+        var username = UserRules.Normalize(req.Username);
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+
+        if (user is not null)
+        {
+            user.ResetRequestedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+
+        return Ok(new { message = "If that account exists, your administrator has been notified." });
     }
 
     [Authorize]
@@ -97,6 +124,7 @@ public class AuthController : ControllerBase
         if (error is not null) return BadRequest(error);
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword);
+        user.ResetRequestedAt = null;
         await _db.SaveChangesAsync();
         return NoContent();
     }
