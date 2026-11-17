@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd'n*.db'n*.db-journal'n*.db-wal'n*.db-shm
+
+# Keep uploads out of git
+Uploads/

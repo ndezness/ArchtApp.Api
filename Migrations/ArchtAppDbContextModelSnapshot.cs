@@ -78,6 +78,9 @@ namespace ArchtApp.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("ContentType")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("FileName")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -87,6 +90,12 @@ namespace ArchtApp.Api.Migrations
 
                     b.Property<int>("ProjectId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<long?>("SizeBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StoredFileName")
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("TEXT");
