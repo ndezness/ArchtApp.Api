@@ -45,25 +45,6 @@ public class ClientsController : ControllerBase
         return client is null ? NotFound() : client;
     }
 
-    [HttpPost]
-    public async Task<ActionResult<Client>> Create(ClientRequest req)
-    {
-        if (string.IsNullOrWhiteSpace(req.Name) || string.IsNullOrWhiteSpace(req.PropertyAddress))
-            return BadRequest("Name and property address are required.");
-
-        var client = new Client
-        {
-            Name = req.Name.Trim(),
-            Email = Clean(req.Email),
-            Phone = Clean(req.Phone),
-            PropertyAddress = req.PropertyAddress.Trim()
-        };
-
-        _db.Clients.Add(client);
-        await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(Get), new { id = client.ClientId }, client);
-    }
-
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, ClientRequest req)
     {

@@ -56,6 +56,8 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddScoped<SchedulingService>();
+builder.Services.AddScoped<NumberingService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
