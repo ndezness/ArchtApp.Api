@@ -103,11 +103,57 @@ namespace ArchtApp.Api.Migrations
                     b.Property<int>("VersionNumber")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("WorkItemId")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("DocumentId");
 
                     b.HasIndex("ProjectId");
 
+                    b.HasIndex("WorkItemId");
+
                     b.ToTable("Documents");
+                });
+
+            modelBuilder.Entity("ArchtApp.Api.Models.Lead", b =>
+                {
+                    b.Property<int>("LeadId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ConvertedProjectId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProjectInterest")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SiteAddress")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("LeadId");
+
+                    b.ToTable("Leads");
                 });
 
             modelBuilder.Entity("ArchtApp.Api.Models.Payment", b =>
@@ -131,6 +177,9 @@ namespace ArchtApp.Api.Migrations
                     b.Property<int>("ProjectId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("ReceiptNumber")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("PaymentId");
 
                     b.HasIndex("ProjectId");
@@ -150,8 +199,35 @@ namespace ArchtApp.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("DesignApprovedOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DesignDueDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DesignWorkingDays")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("PermitCollectedOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PermitSubmittedOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PmcOutcome")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProjectInterest")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ProjectName")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reference")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SiteAddress")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("StartDate")
@@ -170,6 +246,9 @@ namespace ArchtApp.Api.Migrations
                     b.HasKey("ProjectId");
 
                     b.HasIndex("ClientId");
+
+                    b.HasIndex("Reference")
+                        .IsUnique();
 
                     b.ToTable("Projects");
                 });
@@ -209,6 +288,52 @@ namespace ArchtApp.Api.Migrations
                     b.ToTable("ProjectTracks");
                 });
 
+            modelBuilder.Entity("ArchtApp.Api.Models.Setting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("Settings");
+
+                    b.HasData(
+                        new
+                        {
+                            Key = "BusinessName",
+                            Value = "BDL"
+                        },
+                        new
+                        {
+                            Key = "BusinessPhone",
+                            Value = ""
+                        },
+                        new
+                        {
+                            Key = "BusinessEmail",
+                            Value = ""
+                        },
+                        new
+                        {
+                            Key = "BusinessAddress",
+                            Value = ""
+                        },
+                        new
+                        {
+                            Key = "ReferencePrefix",
+                            Value = "BDL"
+                        },
+                        new
+                        {
+                            Key = "ConsultationFee",
+                            Value = "0"
+                        });
+                });
+
             modelBuilder.Entity("ArchtApp.Api.Models.Stage", b =>
                 {
                     b.Property<int>("StageId")
@@ -230,32 +355,62 @@ namespace ArchtApp.Api.Migrations
                         new
                         {
                             StageId = 1,
-                            Name = "Intake",
+                            Name = "Consultation",
                             SortOrder = 1
                         },
                         new
                         {
                             StageId = 2,
-                            Name = "Design",
+                            Name = "Site Visit",
                             SortOrder = 2
                         },
                         new
                         {
                             StageId = 3,
-                            Name = "Client Review",
+                            Name = "Preliminary Design",
                             SortOrder = 3
                         },
                         new
                         {
                             StageId = 4,
-                            Name = "Permitting",
+                            Name = "Design Presentation",
                             SortOrder = 4
                         },
                         new
                         {
                             StageId = 5,
-                            Name = "Construction",
+                            Name = "Design Approval",
                             SortOrder = 5
+                        },
+                        new
+                        {
+                            StageId = 6,
+                            Name = "Building Plans",
+                            SortOrder = 6
+                        },
+                        new
+                        {
+                            StageId = 7,
+                            Name = "PMC Review",
+                            SortOrder = 7
+                        },
+                        new
+                        {
+                            StageId = 8,
+                            Name = "Permit Submission",
+                            SortOrder = 8
+                        },
+                        new
+                        {
+                            StageId = 9,
+                            Name = "Permit Collection",
+                            SortOrder = 9
+                        },
+                        new
+                        {
+                            StageId = 10,
+                            Name = "Project Completion",
+                            SortOrder = 10
                         });
                 });
 
@@ -294,6 +449,9 @@ namespace ArchtApp.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Address")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("TEXT");
 
@@ -301,6 +459,12 @@ namespace ArchtApp.Api.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("DueDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("GoogleEventId")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsDone")
@@ -319,6 +483,9 @@ namespace ArchtApp.Api.Migrations
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("VisitNumber")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("WorkItemId");
 
@@ -346,7 +513,13 @@ namespace ArchtApp.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ArchtApp.Api.Models.WorkItem", "WorkItem")
+                        .WithMany()
+                        .HasForeignKey("WorkItemId");
+
                     b.Navigation("Project");
+
+                    b.Navigation("WorkItem");
                 });
 
             modelBuilder.Entity("ArchtApp.Api.Models.Payment", b =>

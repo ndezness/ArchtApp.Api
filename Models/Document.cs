@@ -7,6 +7,11 @@ public class Document
     public int DocumentId { get; set; }
     public int ProjectId { get; set; }
     public Project? Project { get; set; }
+
+    // Set when the file is a photo or note attachment for one specific site visit
+    public int? WorkItemId { get; set; }
+    public WorkItem? WorkItem { get; set; }
+
     public string FileName { get; set; } = string.Empty;
     public int VersionNumber { get; set; }
     public DateTime UploadedAt { get; set; } = DateTime.UtcNow;

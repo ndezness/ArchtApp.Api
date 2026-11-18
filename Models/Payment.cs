@@ -6,7 +6,8 @@ public class Payment
     public int ProjectId { get; set; }
     public Project? Project { get; set; }
     public decimal Amount { get; set; }
-    public string? PaymentType { get; set; } // deposit, milestone, final
+    public string? PaymentType { get; set; } // consultation, design_approval, final (older: deposit, milestone)
     public DateTime PaymentDate { get; set; }
     public string? Note { get; set; }
+    public string? ReceiptNumber { get; set; }
 }
