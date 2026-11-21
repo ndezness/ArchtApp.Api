@@ -42,17 +42,6 @@ public class ProjectsController : ControllerBase
         return project is null ? NotFound() : project;
     }
 
-    [HttpPost]
-    public async Task<ActionResult<Project>> Create(Project project)
-    {
-        if (!await _db.Clients.AnyAsync(c => c.ClientId == project.ClientId))
-            return BadRequest($"Client {project.ClientId} does not exist.");
-
-        _db.Projects.Add(project);
-        await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(Get), new { id = project.ProjectId }, project);
-    }
-
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, UpdateProjectRequest req)
     {
