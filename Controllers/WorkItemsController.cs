@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ArchtApp.Api.Controllers;
 
+public record NotesRequest(string? Notes);
 public record CreateWorkItemRequest(
     int ProjectId, string Type, string? Title, DateTime? DueDate,
     int? DurationMinutes, string? Address, string? Notes);
@@ -83,6 +84,60 @@ public class WorkItemsController : ControllerBase
     {
         var item = await _db.WorkItems.FindAsync(id);
         return item is null ? NotFound() : item;
+    }
+    // GET api/workitems/5/detail -> one item with its project and client names
+    [HttpGet("{id:int}/detail")]
+    public async Task<IActionResult> Detail(int id)
+    {
+        var item = await _db.WorkItems.AsNoTracking()
+            .Where(w => w.WorkItemId == id)
+            .Select(w => new
+            {
+                w.WorkItemId,
+                w.ProjectId,
+                projectName = w.Project!.ProjectName,
+                reference = w.Project.Reference,
+                clientName = w.Project.Client!.Name,
+                w.Type,
+                w.Title,
+                w.Notes,
+                w.DueDate,
+                w.DurationMinutes,
+                w.Address,
+                w.VisitNumber,
+                w.IsDone,
+                w.CompletedAt,
+                w.CreatedAt
+            })
+            .FirstOrDefaultAsync();
+
+        return item is null ? NotFound() : Ok(item);
+    }
+
+    // PUT api/workitems/5/notes   body: { "notes": "..." }
+    // Works even after the visit is marked done, because notes are often written afterwards
+    [HttpPut("{id:int}/notes")]
+    public async Task<IActionResult> SetNotes(int id, NotesRequest req)
+    {
+        var item = await _db.WorkItems.FindAsync(id);
+        if (item is null) return NotFound();
+
+        var notes = Clean(req.Notes);
+        if (notes is { Length: > 5000 }) return BadRequest("Notes can be at most 5000 characters.");
+        if (notes == item.Notes) return NoContent();
+
+        item.Notes = notes;
+
+        var label = item.Type == "site_visit" ? $"Site visit {item.VisitNumber}" : item.Title;
+        _db.ActivityLogs.Add(new ActivityLog
+        {
+            ProjectId = item.ProjectId,
+            EventType = "site_notes_updated",
+            Description = $"Notes updated for {label}."
+        });
+
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpPost]

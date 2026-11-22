@@ -14,7 +14,8 @@ public class DocumentsController : ControllerBase
     private const long MaxUploadBytes = 100L * 1024 * 1024;
     private const string Binary = "application/octet-stream";
 
-    /* Only these extensions can be uploaded. Only PDFs and images are served with a real content type (so they can be previewed); everything else is download-only.*/
+    // Only these extensions can be uploaded. Only PDFs and images are served with
+    // a real content type (so they can be previewed); everything else is download-only.
     private static readonly Dictionary<string, string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         [".dwg"] = Binary,
@@ -51,21 +52,34 @@ public class DocumentsController : ControllerBase
                 : configured);
     }
 
+    // Only project-level documents are versioned. Site visit photos are not.
     private async Task<int> NextVersion(int projectId, string name)
     {
         var latest = await _db.Documents
-            .Where(d => d.ProjectId == projectId && d.FileName.ToLower() == name.ToLower())
+            .Where(d => d.ProjectId == projectId && d.WorkItemId == null
+                        && d.FileName.ToLower() == name.ToLower())
             .Select(d => (int?)d.VersionNumber)
             .MaxAsync();
         return (latest ?? 0) + 1;
     }
 
-    // GET api/documents?projectId=1 -> every version of every file
+    // GET api/documents?projectId=1            -> everything for a project
+    // GET api/documents?workItemId=5           -> the photos attached to one site visit
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Document>>> GetAll([FromQuery] int? projectId)
+    public async Task<ActionResult<IEnumerable<Document>>> GetAll(
+        [FromQuery] int? projectId, [FromQuery] int? workItemId)
     {
         var query = _db.Documents.AsNoTracking().AsQueryable();
         if (projectId.HasValue) query = query.Where(d => d.ProjectId == projectId.Value);
+
+        if (workItemId.HasValue)
+        {
+            return await query
+                .Where(d => d.WorkItemId == workItemId.Value)
+                .OrderBy(d => d.UploadedAt)
+                .ToListAsync();
+        }
+
         return await query
             .OrderBy(d => d.FileName)
             .ThenByDescending(d => d.VersionNumber)
@@ -79,12 +93,12 @@ public class DocumentsController : ControllerBase
         return doc is null ? NotFound() : doc;
     }
 
-    // GET api/documents/current/1 -> only the latest version of each file
+    // GET api/documents/current/1 -> only the latest version of each project document
     [HttpGet("current/{projectId:int}")]
     public async Task<ActionResult<IEnumerable<Document>>> Current(int projectId)
     {
         var docs = await _db.Documents.AsNoTracking()
-            .Where(d => d.ProjectId == projectId)
+            .Where(d => d.ProjectId == projectId && d.WorkItemId == null)
             .ToListAsync();
 
         return docs
@@ -94,11 +108,13 @@ public class DocumentsController : ControllerBase
             .ToList();
     }
 
-    // Uploads a file. A file with the same name as an existing one becomes the next version.
+    // Uploads one file. Without workItemId it is a project document (a file with the same
+    // name becomes the next version). With workItemId it is attached to that site visit.
     [HttpPost("upload")]
     [RequestSizeLimit(MaxUploadBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadBytes)]
-    public async Task<ActionResult<Document>> Upload([FromForm] int projectId, IFormFile file)
+    public async Task<ActionResult<Document>> Upload(
+        [FromForm] int projectId, IFormFile file, [FromForm] int? workItemId)
     {
         if (file is null || file.Length == 0)
             return BadRequest("Choose a file to upload.");
@@ -117,9 +133,18 @@ public class DocumentsController : ControllerBase
         if (!await _db.Projects.AnyAsync(p => p.ProjectId == projectId))
             return BadRequest($"Project {projectId} does not exist.");
 
-        var version = await NextVersion(projectId, name);
+        if (workItemId.HasValue)
+        {
+            var visit = await _db.WorkItems.AsNoTracking()
+                .FirstOrDefaultAsync(w => w.WorkItemId == workItemId.Value);
+            if (visit is null || visit.ProjectId != projectId || visit.Type != "site_visit")
+                return BadRequest("Photos can only be attached to a site visit of the same project.");
+        }
 
-        /* The file is stored under a random name, so the original name can never be used to guess a path or overwrite anything */
+        var version = workItemId.HasValue ? 1 : await NextVersion(projectId, name);
+
+        // The file is stored under a random name, so the original name can never
+        // be used to guess a path or overwrite anything
         Directory.CreateDirectory(_uploadsDir);
         var storedName = Guid.NewGuid().ToString("N") + ext.ToLowerInvariant();
         var fullPath = Path.Combine(_uploadsDir, storedName);
@@ -132,6 +157,7 @@ public class DocumentsController : ControllerBase
         var doc = new Document
         {
             ProjectId = projectId,
+            WorkItemId = workItemId,
             FileName = name,
             VersionNumber = version,
             StoredFileName = storedName,
@@ -140,12 +166,17 @@ public class DocumentsController : ControllerBase
         };
 
         _db.Documents.Add(doc);
-        _db.ActivityLogs.Add(new ActivityLog
+
+        // A visit with many photos would flood the timeline, so only project documents are logged
+        if (!workItemId.HasValue)
         {
-            ProjectId = projectId,
-            EventType = "document_uploaded",
-            Description = $"Document '{name}' uploaded as version {version}."
-        });
+            _db.ActivityLogs.Add(new ActivityLog
+            {
+                ProjectId = projectId,
+                EventType = "document_uploaded",
+                Description = $"Document '{name}' uploaded as version {version}."
+            });
+        }
 
         try
         {
@@ -207,7 +238,7 @@ public class DocumentsController : ControllerBase
         return PhysicalFile(path, doc.ContentType ?? Binary, doc.FileName);
     }
 
-    // Removal is logged so a missing drawing never disappears without a trace
+    // Removal of a project document is logged so a missing drawing never disappears without a trace
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -217,12 +248,15 @@ public class DocumentsController : ControllerBase
         var stored = doc.StoredFileName;
 
         _db.Documents.Remove(doc);
-        _db.ActivityLogs.Add(new ActivityLog
+        if (doc.WorkItemId is null)
         {
-            ProjectId = doc.ProjectId,
-            EventType = "document_removed",
-            Description = $"Document '{doc.FileName}' version {doc.VersionNumber} was removed."
-        });
+            _db.ActivityLogs.Add(new ActivityLog
+            {
+                ProjectId = doc.ProjectId,
+                EventType = "document_removed",
+                Description = $"Document '{doc.FileName}' version {doc.VersionNumber} was removed."
+            });
+        }
 
         await _db.SaveChangesAsync();
 
