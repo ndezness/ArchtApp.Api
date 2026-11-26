@@ -19,12 +19,15 @@ public class LeadsController : ControllerBase
     private readonly ArchtAppDbContext _db;
     private readonly SchedulingService _scheduling;
     private readonly NumberingService _numbering;
+    private readonly CalendarSync _calendar;
 
-    public LeadsController(ArchtAppDbContext db, SchedulingService scheduling, NumberingService numbering)
+    public LeadsController(
+        ArchtAppDbContext db, SchedulingService scheduling, NumberingService numbering, CalendarSync calendar)
     {
         _db = db;
         _scheduling = scheduling;
         _numbering = numbering;
+        _calendar = calendar;
     }
 
     private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
@@ -230,6 +233,11 @@ public class LeadsController : ControllerBase
 
         await tx.CommitAsync();
 
+        var consultationId = await _db.WorkItems
+            .Where(w => w.ProjectId == project.ProjectId && w.Type == "consultation")
+            .Select(w => w.WorkItemId)
+            .FirstAsync();
+        await _calendar.SyncAppointment(consultationId);
         return Ok(new
         {
             projectId = project.ProjectId,

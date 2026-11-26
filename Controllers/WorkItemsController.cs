@@ -6,13 +6,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ArchtApp.Api.Controllers;
 
-public record NotesRequest(string? Notes);
 public record CreateWorkItemRequest(
     int ProjectId, string Type, string? Title, DateTime? DueDate,
     int? DurationMinutes, string? Address, string? Notes);
 public record UpdateAppointmentRequest(
     DateTime DueDate, int? DurationMinutes, string? Address, string? Notes);
 public record SetDoneRequest(bool IsDone);
+public record NotesRequest(string? Notes);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -23,11 +23,13 @@ public class WorkItemsController : ControllerBase
 
     private readonly ArchtAppDbContext _db;
     private readonly SchedulingService _scheduling;
+    private readonly CalendarSync _calendar;                       // calendar edit 1 of 5
 
-    public WorkItemsController(ArchtAppDbContext db, SchedulingService scheduling)
-    {
+    public WorkItemsController(ArchtAppDbContext db, SchedulingService scheduling, CalendarSync calendar)
+    {                                                              // calendar edit 1 of 5
         _db = db;
         _scheduling = scheduling;
+        _calendar = calendar;                                      // calendar edit 1 of 5
     }
 
     private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
@@ -70,6 +72,7 @@ public class WorkItemsController : ControllerBase
                 w.DurationMinutes,
                 w.Address,
                 w.VisitNumber,
+                onCalendar = w.GoogleEventId != null,              // calendar edit 2 of 5
                 w.IsDone,
                 w.CompletedAt,
                 w.CreatedAt
@@ -85,6 +88,7 @@ public class WorkItemsController : ControllerBase
         var item = await _db.WorkItems.FindAsync(id);
         return item is null ? NotFound() : item;
     }
+
     // GET api/workitems/5/detail -> one item with its project and client names
     [HttpGet("{id:int}/detail")]
     public async Task<IActionResult> Detail(int id)
@@ -198,6 +202,7 @@ public class WorkItemsController : ControllerBase
         });
 
         await _db.SaveChangesAsync();
+        await _calendar.SyncAppointment(item.WorkItemId);          // calendar edit 3 of 5
         return CreatedAtAction(nameof(Get), new { id = item.WorkItemId }, item);
     }
 
@@ -247,6 +252,7 @@ public class WorkItemsController : ControllerBase
         item.Notes = Clean(req.Notes);
 
         await _db.SaveChangesAsync();
+        await _calendar.SyncAppointment(item.WorkItemId);          // calendar edit 4 of 5
         return NoContent();
     }
 
@@ -291,6 +297,8 @@ public class WorkItemsController : ControllerBase
         if (await _db.Documents.AnyAsync(d => d.WorkItemId == id))
             return Conflict("This visit has photos or files attached. Remove them first.");
 
+        var eventId = item.GoogleEventId;                          // calendar edit 5 of 5
+
         _db.WorkItems.Remove(item);
         _db.ActivityLogs.Add(new ActivityLog
         {
@@ -300,6 +308,7 @@ public class WorkItemsController : ControllerBase
         });
 
         await _db.SaveChangesAsync();
+        await _calendar.RemoveEvent(eventId);                      // calendar edit 5 of 5
         return NoContent();
     }
 }

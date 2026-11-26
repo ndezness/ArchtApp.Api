@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Text.RegularExpressions;
 using ArchtApp.Api.Data;
+using ArchtApp.Api.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,7 @@ public class SettingsController : ControllerBase
     private static readonly string[] Keys =
     {
         "BusinessName", "BusinessPhone", "BusinessEmail", "BusinessAddress",
-        "ReferencePrefix", "ConsultationFee"
+        "ReferencePrefix", "ConsultationFee", "GoogleCalendarId"
     };
 
     private readonly ArchtAppDbContext _db;
@@ -42,9 +43,11 @@ public class SettingsController : ControllerBase
 
         foreach (var (key, value) in values)
         {
+            var cleaned = key == "ReferencePrefix" ? value.Trim().ToUpperInvariant() : value.Trim();
+
             var setting = await _db.Settings.FindAsync(key);
-            if (setting is null) continue;
-            setting.Value = key == "ReferencePrefix" ? value.Trim().ToUpperInvariant() : value.Trim();
+            if (setting is null) _db.Settings.Add(new Setting { Key = key, Value = cleaned });
+            else setting.Value = cleaned;
         }
 
         await _db.SaveChangesAsync();

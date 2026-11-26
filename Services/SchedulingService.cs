@@ -8,8 +8,13 @@ public class SchedulingService
     public const int DefaultMinutes = 60;
 
     private readonly ArchtAppDbContext _db;
+    private readonly CalendarSync _calendar;
 
-    public SchedulingService(ArchtAppDbContext db) => _db = db;
+    public SchedulingService(ArchtAppDbContext db, CalendarSync calendar)
+    {
+        _db = db;
+        _calendar = calendar;
+    }
 
     // Returns a message describing the problem, or null if the slot is free
     public async Task<string?> CheckSlot(DateTime start, int minutes, int? ignoreWorkItemId = null)
@@ -21,6 +26,7 @@ public class SchedulingService
         var dayStart = start.Date;
         var dayEnd = dayStart.AddDays(1);
 
+        // 1. Other appointments inside ArchtApp
         var sameDay = await _db.WorkItems.AsNoTracking()
             .Where(w => (w.Type == "consultation" || w.Type == "site_visit")
                         && !w.IsDone
@@ -39,6 +45,24 @@ public class SchedulingService
                 return $"That time overlaps '{w.Title}' ({wStart:HH:mm}-{wEnd:HH:mm}).";
         }
 
-        return null;
+        // 2. Everything else on the connected Google Calendar, personal events included.
+        // When an appointment is being rescheduled, its own calendar event doesn't count.
+        string? ignoreEventId = null;
+        if (ignoreWorkItemId.HasValue)
+        {
+            ignoreEventId = await _db.WorkItems.AsNoTracking()
+                .Where(w => w.WorkItemId == ignoreWorkItemId.Value)
+                .Select(w => w.GoogleEventId)
+                .FirstOrDefaultAsync();
+        }
+
+        try
+        {
+            return await _calendar.FindConflict(start, minutes, ignoreEventId);
+        }
+        catch (CalendarUnavailableException)
+        {
+            return "Google Calendar couldn't be checked, so this time can't be confirmed. Try again in a moment, check the connection under Settings, or clear the Calendar ID there to schedule without it.";
+        }
     }
 }
